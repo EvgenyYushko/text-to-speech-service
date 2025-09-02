@@ -36,7 +36,7 @@ async def generate_audio_endpoint(text_input: dict):
         fine_temperature=fine_temp, 
         coarse_temperature=coarse_temp
     )
--
+
     sampling_rate = model.generation_config.sample_rate
     audio_waveform = speech_output.cpu().numpy().squeeze()
     
