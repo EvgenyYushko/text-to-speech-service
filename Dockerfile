@@ -9,18 +9,10 @@ RUN pip install --no-cache-dir transformers torch accelerate
 ENV HF_HOME=/hf_cache
 
 # --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-# Запускаем скрипт, который скачает модель и ВСЕ русские голоса (от 0 до 8)
-RUN python -c "\
-from transformers import AutoProcessor, BarkModel; \
-print('Downloading base model...'); \
-processor = AutoProcessor.from_pretrained('suno/bark'); \
-BarkModel.from_pretrained('suno/bark'); \
-print('Downloading all Russian voice presets...'); \
-for i in range(9): \
-    preset_name = f'v2/ru_speaker_{i}'; \
-    print(f'Downloading preset: {preset_name}'); \
-    processor._load_voice_preset(preset_name); \
-print('All downloads complete.')"
+# Копируем наш новый скрипт для скачивания в образ
+COPY download_models.py .
+# Запускаем этот скрипт. Это просто, чисто и надежно.
+RUN python download_models.py
 
 # --- ЭТАП 2: "ФИНАЛЬНЫЙ ОБРАЗ ПРИЛОЖЕНИЯ" ---
 FROM python:3.10-slim
@@ -37,4 +29,4 @@ COPY --from=builder /hf_cache /root/.cache/huggingface
 COPY main.py .
 
 # Команда для запуска веб-сервера
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", $PORT]
