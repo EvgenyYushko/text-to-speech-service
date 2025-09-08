@@ -1,24 +1,19 @@
 # --- ЭТАП 1: "СБОРЩИК МОДЕЛИ" ---
-# Мы используем базовый образ Python и называем этот этап 'builder'
 FROM python:3.10-slim as builder
 
-# Устанавливаем только те библиотеки, которые нужны для скачивания
+# Устанавливаем git и git-lfs на случай, если они понадобятся
+RUN apt-get update && apt-get install -y git git-lfs && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir transformers torch accelerate
 
-# Указываем, куда скачивать модель
+# Указываем корневую папку для всего кэша Hugging Face
 ENV HF_HOME=/hf_cache
 
-# Запускаем команду скачивания. Это самая долгая часть сборки.
-# RUN --mount=type=cache... — это специальная команда для кэширования,
-# чтобы не скачивать модель при каждой небольшой пересборке.
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python -c "from transformers import AutoProcessor, BarkModel; AutoProcessor.from_pretrained('suno/bark'); BarkModel.from_pretrained('suno/bark')"
-
-# На этом первый этап закончен. У нас есть образ, в котором по пути /hf_cache/.cache/huggingface лежит модель.
+# Запускаем команду скачивания модели.
+# Модель будет сохранена в /hf_cache/hub/models--suno--bark/...
+RUN python -c "from transformers import AutoProcessor, BarkModel; AutoProcessor.from_pretrained('suno/bark'); BarkModel.from_pretrained('suno/bark')"
 
 
 # --- ЭТАП 2: "ФИНАЛЬНЫЙ ОБРАЗ ПРИЛОЖЕНИЯ" ---
-# Начинаем с чистого листа, используя тот же базовый образ
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -26,10 +21,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-# Копируем папку с моделью, скачанную на ЭТАПЕ 1,
-# в финальный образ.
-COPY --from=builder /hf_cache/.cache/huggingface /root/.cache/huggingface
+# --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+# Правильный путь для копирования: мы копируем ВСЮ папку кэша
+# из /hf_cache (источник) в /root/.cache/huggingface (назначение)
+COPY --from=builder /hf_cache /root/.cache/huggingface
 
 # Копируем основной код нашего приложения
 COPY main.py .
