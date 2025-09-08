@@ -29,4 +29,4 @@ COPY --from=builder /hf_cache /root/.cache/huggingface
 COPY main.py .
 
 # Команда для запуска веб-сервера
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", $PORT]
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
