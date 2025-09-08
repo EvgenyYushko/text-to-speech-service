@@ -1,4 +1,4 @@
-# --- ЭТАП 1: "СБОРЩИК МОДЕЛИ" ---
+# --- ЭТАП 1: "СБОРЩИК МОДЕЛИ И ГОЛОСОВ" ---
 FROM python:3.10-slim as builder
 
 # Устанавливаем git и git-lfs на случай, если они понадобятся
@@ -8,10 +8,14 @@ RUN pip install --no-cache-dir transformers torch accelerate
 # Указываем корневую папку для всего кэша Hugging Face
 ENV HF_HOME=/hf_cache
 
-# Запускаем команду скачивания модели.
-# Модель будет сохранена в /hf_cache/hub/models--suno--bark/...
-RUN python -c "from transformers import AutoProcessor, BarkModel; AutoProcessor.from_pretrained('suno/bark'); BarkModel.from_pretrained('suno/bark')"
-
+# --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
+# Запускаем команду, которая скачает И основную модель, И файлы для одного из пресетов.
+# Это заставит transformers закэшировать все необходимые компоненты.
+RUN python -c "from transformers import AutoProcessor, BarkModel; \
+    AutoProcessor.from_pretrained('suno/bark'); \
+    BarkModel.from_pretrained('suno/bark'); \
+    # Эта строка заставит скачать файлы для пресетов
+    AutoProcessor.from_pretrained('suno/bark')._load_voice_preset('v2/ru_speaker_0')"
 
 # --- ЭТАП 2: "ФИНАЛЬНЫЙ ОБРАЗ ПРИЛОЖЕНИЯ" ---
 FROM python:3.10-slim
@@ -21,9 +25,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-# Правильный путь для копирования: мы копируем ВСЮ папку кэша
-# из /hf_cache (источник) в /root/.cache/huggingface (назначение)
+# Копируем ВСЮ папку кэша (с моделью и голосами)
 COPY --from=builder /hf_cache /root/.cache/huggingface
 
 # Копируем основной код нашего приложения
