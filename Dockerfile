@@ -8,10 +8,9 @@ RUN pip install --no-cache-dir transformers torch accelerate
 # Указываем корневую папку для кэша
 ENV HF_HOME=/hf_cache
 
-# --- ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-# Копируем наш новый скрипт для скачивания в образ
+# Копируем наш новый скрипт для скачивания
 COPY download_models.py .
-# Запускаем этот скрипт. Это просто, чисто и надежно.
+# Запускаем этот скрипт. Теперь он скачает ВСЁ.
 RUN python download_models.py
 
 # --- ЭТАП 2: "ФИНАЛЬНЫЙ ОБРАЗ ПРИЛОЖЕНИЯ" ---
@@ -22,7 +21,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем ВСЮ папку кэша (с моделью и всеми голосами)
+# Копируем ВСЮ папку кэша
 COPY --from=builder /hf_cache /root/.cache/huggingface
 
 # Копируем основной код
