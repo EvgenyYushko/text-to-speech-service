@@ -6,15 +6,17 @@ import io
 import torch
 from contextlib import asynccontextmanager
 
+APP_VERSION = "v1.0 - local_files_only_enabled"  
 ml_models = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+	print(f"Запуск сервера, ВЕРСИЯ: {APP_VERSION}") 
     print("Сервер запущен. Начинаю загрузку модели ИЗ ЛОКАЛЬНЫХ ФАЙЛОВ...")
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     
-    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-    # Добавляем local_files_only=True, чтобы запретить любые обращения к сети
+    # --- ФИНАЛЬНОЕ ИЗМЕНЕНИЕ ---
+    # Запрещаем любые обращения к сети. Используем только "запеченные" файлы.
     ml_models["processor"] = AutoProcessor.from_pretrained("suno/bark", local_files_only=True)
     ml_models["model"] = BarkModel.from_pretrained("suno/bark", local_files_only=True).to(device)
     
@@ -26,11 +28,8 @@ app = FastAPI(lifespan=lifespan)
 
 # ... (остальной код остается без изменений) ...
 @app.post("/generate-audio/")
-async def generate_audio_endpoint(text_input: dict):
-    # ...
-    # Весь код эндпоинта остается прежним!
-    # ...
-    # Проверяем, загружена ли уже модель
+async def generate_audio_endpoint(text_input: dict):  
+  
     if "model" not in ml_models or "processor" not in ml_models:
         return Response(content='{"error": "Модель все еще загружается, попробуйте через несколько минут."}', status_code=503)
 
