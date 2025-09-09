@@ -6,35 +6,30 @@ import io
 import torch
 from contextlib import asynccontextmanager
 
-# --- 1. Создаем "хранилище" для нашей модели ---
-# Оно будет пустым до тех пор, пока модель не загрузится
 ml_models = {}
 
-# --- 2. Создаем асинхронную функцию для загрузки модели ---
-# FastAPI будет вызывать ее ПОСЛЕ запуска сервера
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Код до 'yield' выполнится при старте
-    print("Сервер запущен. Начинаю загрузку модели...")
+    print("Сервер запущен. Начинаю загрузку модели ИЗ ЛОКАЛЬНЫХ ФАЙЛОВ...")
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     
-    # Загружаем процессор и модель и кладем их в наше "хранилище"
-    ml_models["processor"] = AutoProcessor.from_pretrained("suno/bark")
-    ml_models["model"] = BarkModel.from_pretrained("suno/bark").to(device)
+    # --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+    # Добавляем local_files_only=True, чтобы запретить любые обращения к сети
+    ml_models["processor"] = AutoProcessor.from_pretrained("suno/bark", local_files_only=True)
+    ml_models["model"] = BarkModel.from_pretrained("suno/bark", local_files_only=True).to(device)
     
     print(f"Модель успешно загружена на устройстве: {device}")
-    
     yield
-    
-    # Код после 'yield' выполнится при остановке сервера (очистка)
     ml_models.clear()
 
-# --- 3. Передаем эту функцию в FastAPI ---
 app = FastAPI(lifespan=lifespan)
 
-# --- 4. Эндпоинт теперь берет модель из "хранилища" ---
+# ... (остальной код остается без изменений) ...
 @app.post("/generate-audio/")
 async def generate_audio_endpoint(text_input: dict):
+    # ...
+    # Весь код эндпоинта остается прежним!
+    # ...
     # Проверяем, загружена ли уже модель
     if "model" not in ml_models or "processor" not in ml_models:
         return Response(content='{"error": "Модель все еще загружается, попробуйте через несколько минут."}', status_code=503)
