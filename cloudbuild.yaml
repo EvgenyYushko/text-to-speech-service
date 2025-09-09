@@ -1,0 +1,14 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/text-to-speech-service:$COMMIT_SHA', '.']
+
+images:
+- 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/text-to-speech-service:$COMMIT_SHA'
+
+# Увеличиваем общий таймаут для подстраховки
+timeout: 3600s
+
+# --- САМОЕ ВАЖНОЕ ИЗМЕНЕНИЕ ---
+# Запрашиваем более мощную машину для сборки
+options:
+  machineType: 'E2_HIGHCPU_8' 
