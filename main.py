@@ -6,17 +6,16 @@ import io
 import torch
 from contextlib import asynccontextmanager
 
-APP_VERSION = "v1.0 - local_files_only_enabled"  
+APP_VERSION = "v1.1 - Indentation Fixed"
 ml_models = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-	print(f"Запуск сервера, ВЕРСИЯ: {APP_VERSION}") 
+    # --- ВСЕ ОТСТУПЫ ЗДЕСЬ ИСПРАВЛЕНЫ НА 4 ПРОБЕЛА ---
+    print(f"Запуск сервера, ВЕРСИЯ: {APP_VERSION}")
     print("Сервер запущен. Начинаю загрузку модели ИЗ ЛОКАЛЬНЫХ ФАЙЛОВ...")
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    
-    # --- ФИНАЛЬНОЕ ИЗМЕНЕНИЕ ---
-    # Запрещаем любые обращения к сети. Используем только "запеченные" файлы.
+
     ml_models["processor"] = AutoProcessor.from_pretrained("suno/bark", local_files_only=True)
     ml_models["model"] = BarkModel.from_pretrained("suno/bark", local_files_only=True).to(device)
     
@@ -26,18 +25,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# ... (остальной код остается без изменений) ...
 @app.post("/generate-audio/")
 async def generate_audio_endpoint(text_input: dict):  
-  
     if "model" not in ml_models or "processor" not in ml_models:
         return Response(content='{"error": "Модель все еще загружается, попробуйте через несколько минут."}', status_code=503)
 
-    # Берем готовые процессор и модель
     processor = ml_models["processor"]
     model = ml_models["model"]
 
-    # ... (вся остальная логика эндпоинта остается абсолютно такой же) ...
     text = text_input.get("text")
     if not text:
         return Response(content='{"error": "Текст не был предоставлен в запросе."}', status_code=400)
@@ -62,6 +57,5 @@ async def generate_audio_endpoint(text_input: dict):
 
 @app.get("/")
 def read_root():
-    # Можно добавить проверку, загружена ли модель
     status = "запущен, модель загружается..." if "model" not in ml_models else "запущен и готов к работе!"
     return {"status": f"Сервер {status}"}
