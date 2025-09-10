@@ -4,35 +4,26 @@ import soundfile as sf
 import numpy as np
 import io
 import torch
-from contextlib import asynccontextmanager
 
-APP_VERSION = "v1.1 - Indentation Fixed"
-ml_models = {}
+# --- УБИРАЕМ LIFESPAN И ГЛОБАЛЬНЫЙ СЛОВАРЬ ---
+# Вместо этого мы будем полагаться на внутреннее кэширование transformers
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # --- ВСЕ ОТСТУПЫ ЗДЕСЬ ИСПРАВЛЕНЫ НА 4 ПРОБЕЛА ---
-    print(f"Запуск сервера, ВЕРСИЯ: {APP_VERSION}")
-    print("Сервер запущен. Начинаю загрузку модели ИЗ ЛОКАЛЬНЫХ ФАЙЛОВ...")
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+# --- ЗАГРУЖАЕМ МОДЕЛЬ И ПРОЦЕССОР ПРИ СТАРТЕ ---
+# Это вернет нас к проблеме долгого запуска, НО мы ее решим!
+print("Предварительная загрузка модели (может быть долгой)...")
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+processor = AutoProcessor.from_pretrained("suno/bark", local_files_only=True)
+model = BarkModel.from_pretrained("suno/bark", local_files_only=True).to(device)
+print(f"Модель предварительно загружена на устройстве: {device}")
 
-    ml_models["processor"] = AutoProcessor.from_pretrained("suno/bark", local_files_only=True)
-    ml_models["model"] = BarkModel.from_pretrained("suno/bark", local_files_only=True).to(device)
-    
-    print(f"Модель успешно загружена на устройстве: {device}")
-    yield
-    ml_models.clear()
-
-app = FastAPI(lifespan=lifespan)
+# Создаем приложение
+app = FastAPI()
 
 @app.post("/generate-audio/")
-async def generate_audio_endpoint(text_input: dict):  
-    if "model" not in ml_models or "processor" not in ml_models:
-        return Response(content='{"error": "Модель все еще загружается, попробуйте через несколько минут."}', status_code=503)
-
-    processor = ml_models["processor"]
-    model = ml_models["model"]
-
+async def generate_audio_endpoint(text_input: dict):
+    # Модель и процессор уже загружены в память при старте контейнера
+    # и доступны здесь напрямую.
+    
     text = text_input.get("text")
     if not text:
         return Response(content='{"error": "Текст не был предоставлен в запросе."}', status_code=400)
@@ -57,5 +48,4 @@ async def generate_audio_endpoint(text_input: dict):
 
 @app.get("/")
 def read_root():
-    status = "запущен, модель загружается..." if "model" not in ml_models else "запущен и готов к работе!"
-    return {"status": f"Сервер {status}"}
+    return {"status": "Сервер запущен и готов к работе!"}
