@@ -5,25 +5,18 @@ import numpy as np
 import io
 import torch
 
-# --- УБИРАЕМ LIFESPAN И ГЛОБАЛЬНЫЙ СЛОВАРЬ ---
-# Вместо этого мы будем полагаться на внутреннее кэширование transformers
-
-# --- ЗАГРУЖАЕМ МОДЕЛЬ И ПРОЦЕССОР ПРИ СТАРТЕ ---
-# Это вернет нас к проблеме долгого запуска, НО мы ее решим!
-print("Предварительная загрузка модели (может быть долгой)...")
+# --- ЗАГРУЖАЕМ МОДЕЛЬ ПРИ СТАРТЕ ---
+# Теперь это будет БЫСТРО, так как она будет найдена в кэше
+print("Загрузка модели из кэша...")
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
-processor = AutoProcessor.from_pretrained("suno/bark", local_files_only=True)
-model = BarkModel.from_pretrained("suno/bark", local_files_only=True).to(device)
-print(f"Модель предварительно загружена на устройстве: {device}")
+processor = AutoProcessor.from_pretrained("suno/bark")
+model = BarkModel.from_pretrained("suno/bark").to(device)
+print(f"Модель загружена на устройстве: {device}")
 
-# Создаем приложение
 app = FastAPI()
 
 @app.post("/generate-audio/")
 async def generate_audio_endpoint(text_input: dict):
-    # Модель и процессор уже загружены в память при старте контейнера
-    # и доступны здесь напрямую.
-    
     text = text_input.get("text")
     if not text:
         return Response(content='{"error": "Текст не был предоставлен в запросе."}', status_code=400)
@@ -35,7 +28,6 @@ async def generate_audio_endpoint(text_input: dict):
     print(f"Запрос: '{text}', Пресет: {voice_preset or 'auto'}")
     
     inputs = processor(text, voice_preset=voice_preset, return_tensors="pt").to(model.device)
-    
     speech_output = model.generate(**inputs, do_sample=True, fine_temperature=fine_temp, coarse_temperature=coarse_temp)
     
     sampling_rate = model.generation_config.sample_rate
